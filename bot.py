@@ -12,7 +12,7 @@ import os
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
-from aiohttp import web
+from aiohttp import ClientSession, ClientTimeout, web
 
 from config import config
 from database import init_db
@@ -43,6 +43,26 @@ async def start_health_server() -> web.AppRunner:
     return runner
 
 
+async def keep_server_awake() -> None:
+    service_url = os.getenv("RENDER_EXTERNAL_URL")
+    if not service_url:
+        logger.info("RENDER_EXTERNAL_URL topilmadi, keep-alive o'chirildi.")
+        return
+
+    health_url = f"{service_url.rstrip('/')}/health"
+    timeout = ClientTimeout(total=15)
+    async with ClientSession(timeout=timeout) as session:
+        while True:
+            try:
+                async with session.get(health_url) as response:
+                    logger.info("Keep-alive so'rovi: HTTP %s", response.status)
+            except asyncio.CancelledError:
+                raise
+            except Exception as error:
+                logger.warning("Keep-alive so'rovi muvaffaqiyatsiz: %s", error)
+            await asyncio.sleep(120)
+
+
 async def main() -> None:
     # Bazani ishga tushirishdan oldin tayyorlaymiz
     await init_db()
@@ -64,9 +84,12 @@ async def main() -> None:
     logger.info("Bot ishga tushmoqda...")
     await bot.delete_webhook(drop_pending_updates=True)
     health_runner = await start_health_server()
+    keep_alive_task = asyncio.create_task(keep_server_awake())
     try:
         await dp.start_polling(bot)
     finally:
+        keep_alive_task.cancel()
+        await asyncio.gather(keep_alive_task, return_exceptions=True)
         await health_runner.cleanup()
         await bot.session.close()
 
