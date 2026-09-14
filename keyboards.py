@@ -14,7 +14,9 @@ from aiogram.types import (
 # ---------------------------------------------------------------------------
 
 BTN_UPLOAD = "🎬 Kino yuklash"
+BTN_UPLOAD_SERIAL = "📺 Serial qo'shish"
 BTN_LIST = "📋 Kinolar ro'yxati"
+BTN_SERIAL_LIST = "📺 Seriallar ro'yxati"
 BTN_SEARCH = "🔎 Kino qidirish"
 BTN_DELETE = "🗑 Kino o'chirish"
 BTN_STATS = "📊 Statistika"
@@ -24,8 +26,9 @@ BTN_EXIT = "🚪 Admin paneldan chiqish"
 def admin_menu_keyboard() -> ReplyKeyboardMarkup:
     """Admin panel uchun asosiy reply klaviatura."""
     keyboard = [
-        [KeyboardButton(text=BTN_UPLOAD)],
-        [KeyboardButton(text=BTN_LIST), KeyboardButton(text=BTN_SEARCH)],
+        [KeyboardButton(text=BTN_UPLOAD), KeyboardButton(text=BTN_UPLOAD_SERIAL)],
+        [KeyboardButton(text=BTN_LIST), KeyboardButton(text=BTN_SERIAL_LIST)],
+        [KeyboardButton(text=BTN_SEARCH)],
         [KeyboardButton(text=BTN_DELETE), KeyboardButton(text=BTN_STATS)],
         [KeyboardButton(text=BTN_EXIT)],
     ]
@@ -71,3 +74,26 @@ def pagination_keyboard(current_offset: int, limit: int, total: int) -> InlineKe
 
     buttons.append(row)
     return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+def serial_episodes_keyboard(serial_id: str, episodes: list) -> InlineKeyboardMarkup:
+    """Foydalanuvchiga serial qismlarini tanlash klaviaturasi."""
+    buttons = [
+        [InlineKeyboardButton(
+            text=f"{episode['episode_number']}-qism",
+            callback_data=f"serial_episode:{serial_id}:{episode['episode_number']}",
+        )]
+        for episode in episodes
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+def rating_keyboard(content_type: str, content_id: str) -> InlineKeyboardMarkup:
+    """Kino yoki serial uchun 1-5 yulduzli reyting klaviaturasi."""
+    return InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(
+            text=f"{rating}⭐",
+            callback_data=f"rate:{content_type}:{content_id}:{rating}",
+        )
+        for rating in range(1, 6)
+    ]])

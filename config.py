@@ -30,6 +30,7 @@ class Config:
     admin_id: int
     admin_password: str
     db_path: str
+    channel_id: str | None
 
 
 def load_config() -> Config:
@@ -37,6 +38,7 @@ def load_config() -> Config:
     admin_id_raw = _get_env("ADMIN_ID")
     admin_password = _get_env("ADMIN_PASSWORD")
     db_path = _get_env("DB_PATH", required=False, default="kino_bot.db")
+    channel_id = _get_env("CHANNEL_ID", required=False, default=None)
 
     try:
         admin_id = int(admin_id_raw)
@@ -48,6 +50,7 @@ def load_config() -> Config:
         admin_id=admin_id,
         admin_password=admin_password,
         db_path=db_path,
+        channel_id=channel_id,
     )
 
 

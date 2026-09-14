@@ -17,6 +17,13 @@ class UploadMovie(StatesGroup):
     waiting_movie_id = State()
 
 
+class UploadSerial(StatesGroup):
+    """Serial va uning qismlarini yuklash bosqichlari."""
+    waiting_title = State()
+    waiting_serial_id = State()
+    waiting_episode = State()
+
+
 class DeleteMovie(StatesGroup):
     """Kino o'chirish bosqichi."""
     waiting_movie_id = State()

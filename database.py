@@ -38,6 +38,41 @@ async def init_db() -> None:
             )
             """
         )
+        await db.execute(
+            """
+            CREATE TABLE IF NOT EXISTS serials (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                serial_id TEXT UNIQUE NOT NULL,
+                title TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+            """
+        )
+        await db.execute(
+            """
+            CREATE TABLE IF NOT EXISTS episodes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                serial_id TEXT NOT NULL,
+                episode_number INTEGER NOT NULL,
+                file_id TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                UNIQUE(serial_id, episode_number)
+            )
+            """
+        )
+        await db.execute(
+            """
+            CREATE TABLE IF NOT EXISTS ratings (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                telegram_id INTEGER NOT NULL,
+                content_type TEXT NOT NULL,
+                content_id TEXT NOT NULL,
+                rating INTEGER NOT NULL CHECK(rating BETWEEN 1 AND 5),
+                created_at TEXT NOT NULL,
+                UNIQUE(telegram_id, content_type, content_id)
+            )
+            """
+        )
         await db.commit()
 
 
@@ -150,3 +185,102 @@ async def search_movies(query: str) -> list[aiosqlite.Row]:
             (query, like_query),
         )
         return await cursor.fetchall()
+
+
+# ---------------------------------------------------------------------------
+# SERIALS AND EPISODES
+# ---------------------------------------------------------------------------
+
+async def serial_exists(serial_id: str) -> bool:
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute("SELECT 1 FROM serials WHERE serial_id = ?", (serial_id,))
+        return await cursor.fetchone() is not None
+
+
+async def add_serial(serial_id: str, title: str) -> None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "INSERT INTO serials (serial_id, title, created_at) VALUES (?, ?, ?)",
+            (serial_id, title, datetime.utcnow().isoformat()),
+        )
+        await db.commit()
+
+
+async def get_serial_by_id(serial_id: str) -> aiosqlite.Row | None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cursor = await db.execute("SELECT * FROM serials WHERE serial_id = ?", (serial_id,))
+        return await cursor.fetchone()
+
+
+async def get_serial_episodes(serial_id: str) -> list[aiosqlite.Row]:
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cursor = await db.execute(
+            "SELECT * FROM episodes WHERE serial_id = ? ORDER BY episode_number",
+            (serial_id,),
+        )
+        return await cursor.fetchall()
+
+
+async def get_episode(serial_id: str, episode_number: int) -> aiosqlite.Row | None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cursor = await db.execute(
+            "SELECT * FROM episodes WHERE serial_id = ? AND episode_number = ?",
+            (serial_id, episode_number),
+        )
+        return await cursor.fetchone()
+
+
+async def add_episode(serial_id: str, episode_number: int, file_id: str) -> None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            """
+            INSERT INTO episodes (serial_id, episode_number, file_id, created_at)
+            VALUES (?, ?, ?, ?)
+            """,
+            (serial_id, episode_number, file_id, datetime.utcnow().isoformat()),
+        )
+        await db.commit()
+
+
+async def get_serials() -> list[aiosqlite.Row]:
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cursor = await db.execute(
+            """
+            SELECT s.*, COUNT(e.id) AS episode_count
+            FROM serials s LEFT JOIN episodes e ON e.serial_id = s.serial_id
+            GROUP BY s.id ORDER BY s.id DESC
+            """
+        )
+        return await cursor.fetchall()
+
+
+# ---------------------------------------------------------------------------
+# RATINGS
+# ---------------------------------------------------------------------------
+
+async def save_rating(telegram_id: int, content_type: str, content_id: str, rating: int) -> None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            """
+            INSERT INTO ratings (telegram_id, content_type, content_id, rating, created_at)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(telegram_id, content_type, content_id)
+            DO UPDATE SET rating = excluded.rating, created_at = excluded.created_at
+            """,
+            (telegram_id, content_type, content_id, rating, datetime.utcnow().isoformat()),
+        )
+        await db.commit()
+
+
+async def get_rating_stats(content_type: str, content_id: str) -> tuple[float, int]:
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute(
+            "SELECT AVG(rating), COUNT(*) FROM ratings WHERE content_type = ? AND content_id = ?",
+            (content_type, content_id),
+        )
+        average, count = await cursor.fetchone()
+        return (round(average, 1) if average is not None else 0.0, count)

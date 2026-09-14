@@ -146,6 +146,13 @@ Bot shu paytdan boshlab ishlay boshlaydi. To'xtatish uchun `Ctrl+C` bosing.
 
 - Videolar Telegram serverida saqlanadi — bot faqat `file_id` ni bazada
   saqlaydi, shu sababli katta hajmdagi videolar bilan ham muammosiz ishlaydi.
+- Admin paneldagi **📺 Serial qo'shish** tugmasi orqali serial nomi va ID'sini
+   kiriting, qismlarni ketma-ket yuboring va `/done` bilan yakunlang.
+- Foydalanuvchi serial ID'sini yuborganda qismlar ro'yxatini ko'radi va tanlagan
+   qismini oladi. Kino va seriallarga 1-5 yulduz reyting berish mumkin.
+- Kino va serial qismlarini kanalga avtomatik nusxalash uchun botni kanalga admin
+   qiling va `.env` yoki Render Environment Variables'da `CHANNEL_ID` ni
+   `-100...` ko'rinishidagi kanal ID'si yoki `@kanal_username` bilan to'ldiring.
 - Admin sessiyasi xotirada saqlanadi — bot qayta ishga tushirilsa, admin
   yana parol kiritishi kerak bo'ladi (xavfsizlik uchun).
 - `.env` faylini hech qachon ochiq joyga (GitHub'ga public repo sifatida)
