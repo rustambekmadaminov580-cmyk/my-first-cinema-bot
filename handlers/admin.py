@@ -459,11 +459,34 @@ async def show_stats(message: Message, state: FSMContext) -> None:
 
     await state.clear()
     users_count = await db.get_users_count()
+    users = await db.get_users()
     movies_count = await db.get_movies_count()
 
-    await message.answer(
+    stats_text = (
         "📊 BOT STATISTIKASI\n\n"
         f"👤 Foydalanuvchilar: {users_count}\n"
         f"🎬 Kinolar: {movies_count}\n"
-        f"📥 Yuklangan kinolar: {movies_count}"
+        f"📥 Yuklangan kinolar: {movies_count}\n\n"
+        "👥 Foydalanuvchilar ro'yxati:\n"
     )
+
+    if not users:
+        stats_text += "Hozircha foydalanuvchilar yo'q."
+        await message.answer(stats_text)
+        return
+
+    user_lines = []
+    for index, user in enumerate(users, start=1):
+        name_parts = [user["first_name"], user["last_name"]]
+        name = " ".join(part for part in name_parts if part) or "Nomsiz foydalanuvchi"
+        username = f"@{user['username']}" if user["username"] else "username yo'q"
+        user_lines.append(f"{index}. {name} | {username} | ID: {user['telegram_id']}")
+
+    current_message = stats_text
+    for line in user_lines:
+        if len(current_message) + len(line) + 1 > 3900:
+            await message.answer(current_message)
+            current_message = "👥 Foydalanuvchilar davomı:\n"
+        current_message += line + "\n"
+
+    await message.answer(current_message, reply_markup=kb.admin_menu_keyboard())

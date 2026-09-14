@@ -73,6 +73,9 @@ async def init_db() -> None:
             )
             """
         )
+        user_columns = await db.execute_fetchall("PRAGMA table_info(users)")
+        if not any(column[1] == "last_name" for column in user_columns):
+            await db.execute("ALTER TABLE users ADD COLUMN last_name TEXT")
         await db.commit()
 
 
@@ -80,7 +83,12 @@ async def init_db() -> None:
 # USERS
 # ---------------------------------------------------------------------------
 
-async def add_user(telegram_id: int, username: str | None, first_name: str | None) -> None:
+async def add_user(
+    telegram_id: int,
+    username: str | None,
+    first_name: str | None,
+    last_name: str | None,
+) -> None:
     """Yangi foydalanuvchini bazaga qo'shadi, agar u allaqachon mavjud bo'lmasa."""
     async with aiosqlite.connect(DB_PATH) as db:
         cursor = await db.execute(
@@ -90,10 +98,10 @@ async def add_user(telegram_id: int, username: str | None, first_name: str | Non
         if existing is None:
             await db.execute(
                 """
-                INSERT INTO users (telegram_id, username, first_name, created_at)
-                VALUES (?, ?, ?, ?)
+                INSERT INTO users (telegram_id, username, first_name, last_name, created_at)
+                VALUES (?, ?, ?, ?, ?)
                 """,
-                (telegram_id, username, first_name, datetime.utcnow().isoformat()),
+                (telegram_id, username, first_name, last_name, datetime.utcnow().isoformat()),
             )
             await db.commit()
 
@@ -103,6 +111,16 @@ async def get_users_count() -> int:
         cursor = await db.execute("SELECT COUNT(*) FROM users")
         row = await cursor.fetchone()
         return row[0] if row else 0
+
+
+async def get_users() -> list[aiosqlite.Row]:
+    """Statistika uchun barcha foydalanuvchilarni qaytaradi."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cursor = await db.execute(
+            "SELECT telegram_id, username, first_name, last_name FROM users ORDER BY id DESC"
+        )
+        return await cursor.fetchall()
 
 
 # ---------------------------------------------------------------------------
